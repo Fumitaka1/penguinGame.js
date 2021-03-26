@@ -1,84 +1,132 @@
-var cvs = document.getElementById("canvas");//------------------------ 変数を準備
-var ctx = cvs.getContext("2d");
+let cvs = document.getElementById("canvas");
+let startBtn = document.getElementById("start-button");
+let ctx = cvs.getContext("2d");
 
-var backGround = new Image(); 
-var penguin = new Image();
-var orca = new Image();
-var startImage = new Image();
-var gameClear = new Image();
-var gameOver = new Image();
-var pY = 30;
-var pX = 85;
-var from_start = 0;
-var startTime = 0;
+let bg_img = new Image();
+let gr_img = new Image();
+let penguin = new Image();
+let orca = new Image();
+let garbage = new Image();
+let seal = new Image();
+let gameClear = new Image();
+let gameOver = new Image();
 
+bg_img.src = "backGround.png";//------------------------ 画像読み込み
+gr_img.src = "ground.png";
+penguin.src = "penguin.png";
+orca.src = "orca.png";
+garbage.src = "garbage.png";
+seal.src = "seal.png";
+gameClear.src = "gameClear.png";
+gameOver.src = "gameOver.png";
 
-function getRandomInt(min, max) {//------------------------ 指定された範囲でランダムな整数を返す
+let nowPlaying = 0;
+let from_start = 0;
+let startTime = 0;
+const e_images = [orca, seal, garbage];
+let animals = [];
+let player = 0;
+let backGrounds = [];
+
+startBtn.addEventListener('click', () =>{
+    if(nowPlaying == 0) {gameStart();}
+    startBtn.style.display ="none";
+});
+
+cvs.addEventListener('mousemove', e =>{
+    player.y = e.offsetY;
+    player.x = e.offsetX;
+});
+
+function getRandomInt(min, max) {
     min = Math.ceil(min);
     max = Math.floor(max);
     return Math.floor(Math.random() * (max - min) + min);
 }
 
-backGround.src = "/subdomains/media-cache.php?ak=backGround.png";//------------------------ 画像読み込み
-penguin.src = "/subdomains/media-cache.php?ak=penguin.png";
-orca.src = "/subdomains/media-cache.php?ak=orca.png";
-gameClear.src = "/subdomains/media-cache.php?ak=gameClear.png";
-gameOver.src = "/subdomains/media-cache.php?ak=gameOver.png";
-startImage.src = "/subdomains/media-cache.php?ak=startImage.png";
-
-var enemies = [];//------------------------ 障害物のオブジェクトを用意
-enemies[0] = {
-    x : cvs.width,
-    y : getRandomInt(0, 170)
+class DynamicObject {
+    constructor(img,v, x, y) {
+        this.img = img;
+        this.width = img.width;
+        this.height = img.height;
+        this.v = v;
+        this.x = x;
+        this.y = y;
+    }
 }
 
-function drowStartMenu(){//------------------------ スタート画像を表示
-    ctx.drawImage(startImage, 0, 0);
-    requestAnimationFrame(drowStartMenu);
+function addPlayer(){
+    let img = penguin;
+    player = (new DynamicObject(img));
 }
 
-window.addEventListener('mousemove', () =>{//------------------------ マウスカーソルの位置を取得
-    document.getElementById("canvas").addEventListener('mousemove', logPosition);
-});
-
-function logPosition(event) {//------------------------ 操作キャラの座標にマウスカーソルの座標を代入
-    pY = event.offsetY;
-    pX = event.offsetX;
+function addEnemy() {
+    let img = e_images[getRandomInt(0, 3)];
+    let v = getRandomInt(3, 5);
+    let x = cvs.width;
+    let y = getRandomInt(0, (cvs.height - 70))
+    animals.push(new DynamicObject(img,v, x, y));
 }
 
-function gameStart(){//------------------------ ゲームの本体
-    ctx.drawImage(backGround, 0, 0);
-    ctx.drawImage(penguin, pX, pY);
-    for(var i=0 ; i < enemies.length; i ++){
-        from_start = new Date().getTime() - startTime;
-        ctx.drawImage(orca, enemies[i].x, enemies[i].y);
-        enemies[i].x -=3;
+function gameStart() {
+    nowPlaying = 1;
+    backGrounds.push(new DynamicObject(bg_img, 1, 0, 0));
+    backGrounds.push(new DynamicObject(gr_img, 1, 0, cvs.height - gr_img.height));
+    startTime = new Date().getTime();
+    addPlayer();
+    addEnemy();
+    mainLoop();
+}
 
-        if(enemies[i].x == 300){ //  ブロックを追加する処理
-            enemies.push({
-                x : cvs.width,
-                y : getRandomInt(30, 170)
-            });
-        }
-        
-        if(from_start >= 15000){
-            ctx.drawImage(gameClear, 225, 25);
-            alert('ゲームクリアです。');
-            return true;
-        }
+function cleanUp() {
+    nowPlaying = 0;
+    startBtn.innerHTML　= "もう一度遊ぶ";
+    startBtn.style.display ="block";
+    // backGrounds.length = 0;
+    animals.length = 0; 
+}
 
-        if((pX + penguin.width >= enemies[i].x && pX - orca.width <= enemies[i].x) && (pY - orca.height <= enemies[i].y && pY + penguin.height >= enemies[i].y)) { //  当たり判定処理
-            ctx.drawImage(gameOver, 225, 25);
-            alert('ゲームオーバーです。');
+function isHit(player, obj) {
+    if(player.x + player.width >= obj.x && player.x - obj.width <= obj.x){//------------------------ 横方向の当たり判定
+        if(player.y - obj.height <= obj.y && player.y + player.height >= obj.y){//------------------------ 縦方向の当たり判定
             return true;
         }
     }
-    requestAnimationFrame(gameStart);
+    return false;
 }
 
-drowStartMenu();
+function mainLoop() {
+    from_start = Math.floor((new Date().getTime() - startTime) / 1000);
 
-cvs.addEventListener('click', () =>{//------------------------ クリック町
-    startTime = new Date().getTime();
-    gameStart();
-});
+    if (from_start >= 30) {
+        cleanUp();
+        ctx.drawImage(gameClear, 0, 0);
+        return;
+    }
+
+    for(let i = 0; i < backGrounds.length; i++){
+        let bg = backGrounds[i];
+        if(bg.x < 0 - cvs.width) {
+            backGrounds.splice(i, 1);
+            backGrounds.push(new DynamicObject(bg.img, bg.v, 0, bg.y));
+        }
+        bg.x -= bg.v;
+        ctx.drawImage(bg.img, bg.x, bg.y);
+    }
+    
+    for(let i = 0; i < animals.length; i++){
+        let animal = animals[i];
+
+        animal.x -= animal.v;
+        if (animal.x == cvs.width / 2) addEnemy();
+        if (animal.x < 0 - animal.width) animals.splice(i, 1);
+        if (isHit(player, animal)) {
+            cleanUp();
+            backGrounds.push(new DynamicObject(gameOver, 3, cvs.width, 0));
+            // return;
+        }
+        ctx.drawImage(animal.img, animal.x, animal.y);
+    }
+    ctx.drawImage(player.img, player.x, player.y);
+    requestAnimationFrame(mainLoop);
+}
